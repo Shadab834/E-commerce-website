@@ -1,0 +1,98 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  role         String    @default("CUSTOMER")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  
+  addresses    Address[]
+  orders       Order[]
+  reviews      Review[]
+}
+
+model Address {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+  street    String
+  city      String
+  state     String
+  zip       String
+  country   String
+  isDefault Boolean @default(false)
+}
+
+model Product {
+  id            String      @id @default(uuid())
+  title         String
+  description   String
+  price         Decimal
+  stockQuantity Int
+  category      String
+  images        String
+  rating        Float       @default(0)
+  isFeatured    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  items         OrderItem[]
+  reviews       Review[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  status      String      @default("PENDING")
+  totalAmount Decimal
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items       OrderItem[]
+}
+
+model OrderItem {
+  id              String  @id @default(uuid())
+  orderId         String
+  order           Order   @relation(fields: [orderId], references: [id])
+  productId       String
+  product         Product @relation(fields: [productId], references: [id])
+  quantity        Int
+  priceAtPurchase Decimal
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  adminId   String?
+  action    String
+  entityId  String?
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+model SiteSettings {
+  key       String @id
+  value     String
+}

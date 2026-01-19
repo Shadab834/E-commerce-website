@@ -1,0 +1,514 @@
+# Instant Delivery Hybrid App - Software Requirements Specification (SRS)
+## Project: Quick Commerce Platform (Blinkit/Zepto/BigBasket Replica)
+
+---
+
+## 1. PROJECT OVERVIEW
+
+### 1.1 Executive Summary
+Develop a full-stack hybrid instant delivery application that replicates core quick commerce features of market leaders (Blinkit, Zepto, BigBasket). The platform will deliver groceries and essentials within 10-30 minutes using a hyperlocal dark store network model. The app will support both web (PWA) and mobile (iOS/Android) with real-time tracking, inventory management, and payment integration.
+
+### 1.2 Project Scope
+- **Target Market**: Urban consumers seeking instant gratification for grocery/essentials
+- **Delivery Window**: 10-30 minutes from order placement
+- **SKU Catalog**: 5,000-10,000+ products across groceries, household items, pharmacy, and ready-to-cook categories
+- **Service Model**: Hyperlocal dark store fulfillment with last-mile delivery via gig workers
+- **Monetization**: Commission-based (8-12%), advertising, premium subscriptions
+
+---
+
+## 2. TECHNICAL ARCHITECTURE
+
+### 2.1 Tech Stack (Production)
+- **Frontend**: Next.js 14+ (web PWA), React Native / Flutter (mobile)
+- **Backend**: Node.js/Express + Firebase Realtime DB (development with Prisma ORM for PostgreSQL)
+- **Database**: PostgreSQL (primary), Redis (caching/sessions), Firebase Realtime
+- **Storage**: AWS S3 / Firebase Storage (product images, receipts)
+- **Payment Gateway**: Razorpay / Stripe
+- **Maps & Geolocation**: Google Maps API, OpenStreetMap
+- **Real-time**: WebSocket (Socket.io), Firebase Realtime Listeners
+- **Authentication**: JWT + Firebase Auth
+- **Deployment**: Vercel (frontend), AWS/GCP (backend), Firebase (mobile BaaS)
+
+### 2.2 Development Stack (Local with Prisma)
+- **Frontend**: Next.js with Tailwind CSS
+- **Backend**: Express.js + Prisma ORM + PostgreSQL
+- **Database**: Local PostgreSQL instance
+- **Mock Services**: Faker.js for mock inventory/orders
+- **Testing**: Jest, Cypress
+- **Environment**: Docker Compose for containerized services
+
+---
+
+## 3. FUNCTIONAL REQUIREMENTS
+
+### 3.1 User Roles
+1. **Customer**: Browse, search, order, track, pay
+2. **Delivery Partner**: Accept orders, navigate, update status
+3. **Store Manager**: Manage inventory, process orders, confirm fulfillment
+4. **Admin**: Dashboard, analytics, user management, promotions
+
+### 3.2 Core Features
+
+#### 3.2.1 Authentication & User Management
+- Sign-up/Login via phone OTP, email, Google/Apple OAuth
+- User profile with saved addresses, payment methods, preferences
+- Wishlist management
+- Referral program (earn credits)
+- Address tagging (home, office, other)
+
+#### 3.2.2 Product Catalog & Search
+- Real-time inventory sync across dark stores
+- Category-based browsing (Groceries, Personal Care, Pharmacy, Ready-to-Cook)
+- NLP-powered search with autocomplete and voice search
+- Product filtering (price, ratings, brand, dietary)
+- Product recommendations via AI/ML (personalized feed)
+- Stock status updates (in-stock, out-of-stock, low-stock warnings)
+
+#### 3.2.3 Shopping Cart
+- Add/remove items with quantity adjustments
+- Real-time price updates and GST calculation
+- Save for later functionality
+- Coupon/promo code application
+- Estimated delivery time display
+- Add-after-order feature (add items while order is in transit/packing)
+
+#### 3.2.4 Checkout & Payments
+- Multiple payment modes: Credit/Debit Card, Wallet, UPI, Net Banking, Cash on Delivery
+- Wallet simulation (credits, cashback tracking)
+- Promo codes and dynamic discounts
+- Order review before final confirmation
+- Receipt generation
+
+#### 3.2.5 Order Management
+- Order history with filters (status, date range)
+- Order details page with item breakdown
+- Reorder functionality
+- Order cancellation (with penalty after pick-up)
+- Return/refund management
+
+#### 3.2.6 Real-time Tracking
+- Live GPS tracking of delivery partner on map
+- ETA updates every 30 seconds
+- Delivery partner details (name, vehicle, rating)
+- Chat with delivery partner
+- Push notifications for order updates (confirmed, packed, out for delivery, delivered)
+
+#### 3.2.7 Delivery Partner Features
+- Order assignment and acceptance/rejection
+- Navigation to dark store and customer address
+- Order status updates (picked up, on the way, delivered)
+- Proof of delivery (photo)
+- Ratings and reviews from customers
+
+#### 3.2.8 Store Management
+- Dark store inventory management (stock levels, SKU mapping)
+- Real-time order queue and fulfillment status
+- Packing optimization
+- Order pickup management
+
+#### 3.2.9 Analytics & Admin Dashboard
+- Daily/weekly/monthly revenue and order metrics
+- Customer acquisition cost (CAC), lifetime value (LTV)
+- Delivery efficiency metrics (average delivery time, on-time %)
+- Heatmaps of order concentration
+- Promo effectiveness analysis
+
+---
+
+## 4. NON-FUNCTIONAL REQUIREMENTS
+
+### 4.1 Performance
+- Page load time: < 2 seconds
+- Search results: < 500ms
+- API response time: < 1 second
+- Support 10K+ concurrent users during peak hours
+- Real-time sync latency: < 2 seconds
+
+### 4.2 Scalability
+- Horizontal scaling via microservices/message queues (Kafka)
+- Database sharding for orders and user data
+- CDN for static assets
+- Auto-scaling for backend during peak demand
+
+### 4.3 Reliability
+- 99.5% uptime SLA
+- Automated failover and backup systems
+- Data redundancy across regions
+
+### 4.4 Security
+- End-to-end encryption for sensitive data
+- PCI DSS compliance for payment handling
+- Rate limiting and DDoS protection
+- Regular security audits and penetration testing
+
+### 4.5 Accessibility
+- WCAG 2.1 Level AA compliance
+- Multi-language support (Hindi, English initially)
+- Responsive design for all device sizes
+
+---
+
+## 5. DATABASE SCHEMA (Prisma)
+
+```prisma
+// Users
+model User {
+  id String @id @default(cuid())
+  phone String @unique
+  email String?
+  name String
+  createdAt DateTime @default(now())
+  orders Order[]
+  addresses Address[]
+}
+
+// Addresses
+model Address {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  street String
+  city String
+  pincode String
+  latitude Float
+  longitude Float
+  label String // home, office
+  default Boolean @default(false)
+  createdAt DateTime @default(now())
+  orders Order[]
+}
+
+// Products
+model Product {
+  id String @id @default(cuid())
+  name String
+  description String?
+  category String
+  price Float
+  image String
+  rating Float @default(4.5)
+  reviews Int @default(0)
+  sku String @unique
+  createdAt DateTime @default(now())
+  inventory Inventory[]
+  orderItems OrderItem[]
+}
+
+// Dark Stores
+model DarkStore {
+  id String @id @default(cuid())
+  name String
+  latitude Float
+  longitude Float
+  city String
+  serviceRadius Float // in km
+  inventory Inventory[]
+  orders Order[]
+  deliveryPartners DeliveryPartner[]
+}
+
+// Inventory
+model Inventory {
+  id String @id @default(cuid())
+  productId String
+  product Product @relation(fields: [productId], references: [id])
+  darkStoreId String
+  darkStore DarkStore @relation(fields: [darkStoreId], references: [id])
+  stock Int @default(0)
+  reorderLevel Int @default(10)
+  updatedAt DateTime @updatedAt
+  @@unique([productId, darkStoreId])
+}
+
+// Orders
+model Order {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  darkStoreId String
+  darkStore DarkStore @relation(fields: [darkStoreId], references: [id])
+  addressId String
+  address Address @relation(fields: [addressId], references: [id])
+  items OrderItem[]
+  totalAmount Float
+  deliveryCharge Float @default(0)
+  discount Float @default(0)
+  status String @default("pending") // pending, confirmed, packed, out_for_delivery, delivered, cancelled
+  paymentStatus String @default("pending") // pending, completed, failed
+  paymentMethod String // card, upi, wallet, cod
+  deliveryPartnerId String?
+  deliveryPartner DeliveryPartner? @relation(fields: [deliveryPartnerId], references: [id])
+  estimatedDelivery DateTime?
+  actualDelivery DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Order Items
+model OrderItem {
+  id String @id @default(cuid())
+  orderId String
+  order Order @relation(fields: [orderId], references: [id])
+  productId String
+  product Product @relation(fields: [productId], references: [id])
+  quantity Int
+  price Float
+  @@unique([orderId, productId])
+}
+
+// Delivery Partners
+model DeliveryPartner {
+  id String @id @default(cuid())
+  name String
+  phone String @unique
+  email String?
+  darkStoreId String
+  darkStore DarkStore @relation(fields: [darkStoreId], references: [id])
+  status String @default("offline") // offline, online, on_delivery
+  currentLatitude Float?
+  currentLongitude Float?
+  rating Float @default(4.5)
+  totalDeliveries Int @default(0)
+  orders Order[]
+  createdAt DateTime @default(now())
+}
+
+// Promotions
+model Promotion {
+  id String @id @default(cuid())
+  code String @unique
+  discount Float
+  discountType String // fixed, percentage
+  maxUses Int
+  currentUses Int @default(0)
+  validFrom DateTime
+  validTo DateTime
+  active Boolean @default(true)
+}
+```
+
+---
+
+## 6. API ENDPOINTS
+
+### 6.1 Authentication
+- `POST /api/auth/send-otp` - Send OTP to phone
+- `POST /api/auth/verify-otp` - Verify OTP and login
+- `POST /api/auth/refresh` - Refresh JWT token
+- `POST /api/auth/logout` - Logout user
+
+### 6.2 Products & Catalog
+- `GET /api/products` - Fetch products with filters (category, price)
+- `GET /api/products/:id` - Fetch product details
+- `GET /api/products/search` - Search products (NLP)
+- `GET /api/inventory/:zipcode` - Check inventory by location
+- `GET /api/categories` - Fetch all categories
+
+### 6.3 Cart
+- `POST /api/cart/add` - Add item to cart
+- `PUT /api/cart/update/:itemId` - Update item quantity
+- `DELETE /api/cart/remove/:itemId` - Remove item
+- `GET /api/cart` - Fetch cart with current prices
+- `POST /api/cart/apply-promo` - Apply promo code
+
+### 6.4 Orders
+- `POST /api/orders` - Create order
+- `GET /api/orders` - Fetch user's orders
+- `GET /api/orders/:orderId` - Fetch order details
+- `PUT /api/orders/:orderId/cancel` - Cancel order
+- `GET /api/orders/:orderId/track` - Real-time order tracking
+
+### 6.5 Payments
+- `POST /api/payments/initiate` - Initiate payment (Razorpay)
+- `POST /api/payments/verify` - Verify payment callback
+- `GET /api/wallet` - Fetch wallet balance
+
+### 6.6 Delivery Partner
+- `PUT /api/delivery-partner/location` - Update location (WebSocket)
+- `POST /api/delivery-partner/accept-order` - Accept order
+- `PUT /api/delivery-partner/order-status` - Update order status
+- `GET /api/delivery-partner/assigned-orders` - Fetch assigned orders
+
+---
+
+## 7. FRONTEND UI SCREENS
+
+### Customer App
+1. **Splash/Onboarding** - Location permission, signup/login
+2. **Home** - Recommended products, categories, search bar, delivery time
+3. **Search Results** - Filtered products, sorting options
+4. **Product Detail** - Images, price, reviews, add to cart button
+5. **Cart** - Item list, price breakdown, checkout button
+6. **Checkout** - Address selection, payment method, promo code
+7. **Order Confirmation** - Order details, tracking link
+8. **Live Tracking** - Map with delivery partner, ETA, chat
+9. **Order History** - Previous orders, reorder, reviews
+10. **User Profile** - Settings, addresses, payment methods, referrals
+
+### Delivery Partner App
+1. **Login** - Phone OTP
+2. **Dashboard** - Active orders, earnings
+3. **Order List** - Pending orders to accept/reject
+4. **Order Details** - Items, customer address, navigation
+5. **Navigation** - Route to store, then to customer
+6. **Proof of Delivery** - Photo capture, signature
+7. **Earnings** - Daily/monthly earnings, payment history
+
+### Admin Dashboard
+1. **Analytics** - Orders, revenue, users, metrics
+2. **Orders Management** - Queue, fulfillment tracking
+3. **Inventory** - Dark store stock levels, reorder alerts
+4. **Users** - Customer/partner management
+5. **Promotions** - Create, edit, analyze promo codes
+6. **Settings** - Dark store locations, service areas
+
+---
+
+## 8. KEY ALGORITHMS & FEATURES
+
+### 8.1 Order Assignment
+- Assign nearby dark store based on customer's geolocation and inventory availability
+- Algorithm: Weighted scoring (inventory match 40%, distance 30%, store capacity 30%)
+
+### 8.2 Delivery Partner Matching
+- Assign closest available delivery partner within service radius
+- Real-time distance calculation using Haversine formula
+
+### 8.3 ETA Calculation
+- Base ETA: Store location to customer location (via Google Maps)
+- Dynamic adjustment: Current traffic, delivery partner speed history, number of items
+- Formula: Distance/Avg Speed + Pick & Pack Time (2-3 min)
+
+### 8.4 Inventory Sync
+- Real-time updates via Firebase Listeners / WebSocket
+- Predictive restocking: ML model predicts high-demand items, alerts store manager
+- Stock deduction: Atomic operations to prevent overselling
+
+### 8.5 Personalization
+- Recommend products based on: past orders, category browsing, trending items
+- Dynamic pricing for loyalty program members (5-10% discount)
+
+---
+
+## 9. DEVELOPMENT ROADMAP
+
+### Phase 1: Core MVP (Weeks 1-4)
+- Setup Next.js + Prisma + PostgreSQL locally
+- Authentication (OTP-based login)
+- Product catalog with search and filtering
+- Shopping cart and checkout
+- Mock orders and payment integration (Razorpay test mode)
+- Basic order tracking (simulated ETA)
+
+### Phase 2: Real-time & Delivery (Weeks 5-8)
+- WebSocket integration for live tracking
+- Delivery partner app (basic UI)
+- Real-time inventory sync
+- Push notifications (Firebase Cloud Messaging)
+- Dark store management interface
+
+### Phase 3: Advanced Features (Weeks 9-12)
+- Add-after-order feature
+- Voice search (React Native Voice)
+- Referral program
+- Subscription/membership model
+- Admin dashboard with analytics
+- Performance optimization (caching, CDN)
+
+### Phase 4: Polish & Deployment (Weeks 13-16)
+- Mobile app finalization (React Native / Flutter)
+- PWA conversion for web
+- Security hardening (encryption, rate limiting)
+- Load testing and optimization
+- Deployment to staging/production
+- User acceptance testing (UAT)
+
+---
+
+## 10. TESTING STRATEGY
+
+### 10.1 Unit Tests
+- Utility functions, validators, algorithms (Jest)
+- Target: 80%+ code coverage
+
+### 10.2 Integration Tests
+- API endpoints with mock database (Supertest)
+- Payment gateway integration (test mode)
+
+### 10.3 E2E Tests
+- User flows: signup → search → order → tracking (Cypress)
+- Delivery partner flow: login → accept order → deliver
+
+### 10.4 Performance Tests
+- Load testing: 10K+ concurrent users (Artillery)
+- API response time benchmarks
+
+### 10.5 Security Tests
+- SQL injection, XSS, CSRF prevention
+- Penetration testing for payment flow
+
+---
+
+## 11. DEPLOYMENT STRATEGY
+
+### 11.1 Development Environment
+- Docker Compose: PostgreSQL, Redis, backend, frontend
+- Local Firebase Emulator for testing
+- Seed database with 5,000 mock products
+
+### 11.2 Staging Environment
+- AWS RDS (PostgreSQL)
+- AWS ElastiCache (Redis)
+- Backend on EC2 / ECS
+- Frontend on Vercel (staging branch)
+- Firebase staging project
+
+### 11.3 Production Environment
+- Multi-region deployment (India-optimized)
+- Auto-scaling groups for backend
+- CDN (CloudFront) for static assets
+- Database backup and replication
+- Monitoring with DataDog / New Relic
+
+---
+
+## 12. SUCCESS METRICS (KPIs)
+
+- **User Acquisition**: 10K+ active users in Month 1
+- **Order Volume**: 1000+ orders/day by Month 3
+- **Average Order Value (AOV)**: ₹400-600
+- **Customer Retention**: 40% week-on-week retention
+- **Delivery Time**: Average 15-18 minutes
+- **Customer Satisfaction**: 4.5+ star rating
+- **App Performance**: < 2 second load time, 99.5% uptime
+
+---
+
+## 13. CONSTRAINTS & RISKS
+
+### 13.1 Constraints
+- Limited dark store infrastructure (3-5 stores for MVP)
+- Geographic limitation: Single city launch
+- Inventory size: 5,000 SKUs (limited catalog)
+- Gig worker availability (simulated for MVP)
+
+### 13.2 Risks
+1. High customer acquisition costs
+2. Delivery partner reliability
+3. Inventory management complexity
+4. Payment failure handling
+5. Regulatory compliance (GST, local regulations)
+
+### 13.3 Mitigation Strategies
+- Focus on retention before scaling acquisition
+- Partner selection and rating system
+- Automated inventory forecasting
+- Robust error handling and retry mechanisms
+- Legal compliance review with experts
+
+---
+
+## 14. REFERENCES & MARKET CONTEXT
+
+As of 2025, India's quick commerce market is valued at $5-5.38 billion, dominated by Blinkit (46% share), Zepto (29%), and Swiggy Instamart (25%). Key trends include dark store expansion (1,000+ stores per player), category diversification (pharmacy, beauty, ready-to-cook), and profitability focus. This project aims to replicate proven features from these leaders with a scalable, MVP-first approach.
